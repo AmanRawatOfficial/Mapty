@@ -3,6 +3,7 @@
 class Workout {
   date = new Date();
   id = (Date.now() + '').slice(-10);
+  clicks = 0;
 
   constructor(coords, distance, duration) {
     this.coords = coords;
@@ -16,6 +17,10 @@ class Workout {
     this.description = `${this.type[0].toUpperCase()}${this.type.slice(1)} on ${
       months[this.date.getMonth()]
     } ${this.date.getDate()}`;
+  }
+
+  click() {
+    this.clicks++;
   }
 }
 
@@ -61,13 +66,22 @@ const inputElevation = document.querySelector('.form__input--elevation');
 
 class App {
   #map;
+  #mapZoomLevel = 15;
+  // #mapZoomLevelMarker = 16;
   #mapEvent;
   #workouts = [];
 
   constructor() {
+    // Getting user's position
     this._getPosition();
+
+    // Getting locale Storage
+    this._getLocalStorage();
+
+    // Event Handlers
     form.addEventListener('submit', this._newWorkout.bind(this));
     inputType.addEventListener('change', this._toggleEleveationField);
+    containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
   }
 
   _getPosition() {
@@ -86,7 +100,7 @@ class App {
     const { latitude } = position.coords;
     const coords = [latitude, longitude];
 
-    this.#map = L.map('map').setView(coords, 13);
+    this.#map = L.map('map').setView(coords, this.#mapZoomLevel);
 
     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
       attribution:
@@ -94,6 +108,10 @@ class App {
     }).addTo(this.#map);
 
     this.#map.on('click', this._showForm.bind(this));
+
+    this.#workouts.forEach(work => {
+      this._renderWorkoutMarker(work);
+    });
   }
 
   _showForm(mapE) {
@@ -172,6 +190,9 @@ class App {
 
     // Hide form + Clear input fields
     this._hideForm();
+
+    // Set Local Storage to all workouts
+    this._setLocalStorage();
   }
 
   _renderWorkoutMarker(workout) {
@@ -240,6 +261,52 @@ class App {
       `;
     }
     form.insertAdjacentHTML('afterend', html);
+  }
+
+  // When user click on workout list in left map will be centered to the relative marker!
+  _moveToPopup(event) {
+    const workoutEl = event.target.closest('.workout');
+    console.log(workoutEl);
+
+    if (!workoutEl) return; // Gaurd clause
+
+    const workout = this.#workouts.find(
+      work => work.id === workoutEl.dataset.id
+    );
+    console.log(workout);
+
+    this.#map.setView(workout.coords, this.#mapZoomLevel, {
+      animate: true,
+      pan: {
+        duration: 1,
+      },
+    });
+
+    // Example of using API's
+
+    // workout.click();  Just for checking purpose
+  }
+
+  _setLocalStorage() {
+    localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+  }
+
+  _getLocalStorage() {
+    const localeData = JSON.parse(localStorage.getItem('workouts'));
+
+    if (!localeData) return;
+
+    this.#workouts = localeData;
+
+    this.#workouts.forEach(work => {
+      this._renderWorkout(work);
+    });
+  }
+
+  // Public method
+  reset() {
+    localStorage.removeItem('workouts');
+    location.reload();
   }
 }
 
